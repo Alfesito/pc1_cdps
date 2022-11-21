@@ -8,7 +8,8 @@ from lxml import etree
 from subprocess import call
 
 #Lista de nombre para los servidores
-servers_name=["s1","s2","s3","s4","s5","s6"]
+servers_name=["c1","lb","s1","s2","s3","s4","s5"]
+vms=list()
 
 #Verifica cuantos servidores hay que crear
 def readJSON_server():
@@ -20,7 +21,18 @@ def readJSON_server():
         for line in fin:
             if "num_serv" in line:
                 string = str(line).split()
-                return string[1]
+                if string[2]=="1":
+                    return 1
+                elif string[2]=="2":
+                    return 2
+                elif string[2]=="3":
+                    return 3
+                elif string[2]=="4":
+                    return 4
+                elif string[2]=="5":
+                    return 5
+                else:
+                    return 2
         fin.close()
     else:
         print('Debes usar el parámetro prepare, donde el nº de servidores tiene que ser de 1 a 5, tal que así:')
@@ -41,6 +53,8 @@ def readJSON_debugmode():
                     return True
                 else:
                     return False
+            else:
+                return False
         fin.close()
     else:
         print('Debes usar el parámetro prepare, donde el nº de servidores tiene que ser de 1 a 5, tal que así:')
@@ -53,26 +67,22 @@ num_servers = readJSON_server()
 
 def prepare():
     # Verifica el parametro de numero de servidores
-    if len(sys.argv) == 3 and (int(sys.argv[2]) >= 1 and int(sys.argv[2]) <= 5):
+    if len(sys.argv) == 3:
         param2 = str(sys.argv[2])
     else:
-    # Vericica que el segundo param esté entre 1 y 5
-        if len(sys.argv) != 3 or int(sys.argv[2]) <= 1 or int(sys.argv[2]) >= 5:
-            logger.info('El número de servidores web a arrancar está fuera de los límites permitidos')
-            logger.info('Por ello se arrancaran el número por defecto: 2\n')
+        logger.info('El número de servidores web a arrancar está fuera de los límites permitidos')
+        logger.info('Por ello se arrancaran el número por defecto: 2\n')
         param2 = str(2)  # Valor por defecto del número de servidores a arrancar
     logger.info('Preparando...')
-    str_servers = '\"num_serv\": '+param2+','
-    str_debug = '\"debug\": false'
-    os.system('echo { > gestiona-pc1.json')
-    os.system('echo '+str_servers+' >> gestiona-pc1.json')
-    os.system('echo '+str_debug+' >> gestiona-pc1.json')
-    os.system('echo } >> gestiona-pc1.json')
+
+    json = open("gestiona-pc1.json", "w+")
+    json.write('{\n\t"num_serv" : '+param2+'\n}')
+    json.close()
 
 def create():
     logger.info('Creando...')
     # Cree los bridges correspondientes a las dos redes virtuales
-    machines = ['c1','lb', 's1', 's2']
+
     os.system('sudo brctl addbr LAN1')
     os.system('sudo brctl addbr LAN2')
     os.system('sudo ifconfig LAN1 up')
@@ -85,7 +95,7 @@ def create():
     #Da permisos a la imagen base
     call(["chmod", "777", "cdps-vm-base-pc1.qcow2"])
     #Crea las imagenes de las maquinas virtuales
-    for i in machines: ##Cuidado con machines tamb tienes que estar sn
+    for i in servers_name: ##Cuidado con vms tamb tienes que estar sn
         call(["qemu-img", "create", "-f", "qcow2", "-b", "cdps-vm-base-pc1.qcow2", i+".qcow2"])
         call(["cp", "plantilla-vm-pc1.xml", i+".xml"])
 
@@ -235,7 +245,7 @@ def create():
             fin.write("\nbackend webservers\n")
             fin.write("\tmode http\n")
             fin.write("\tbalance roundrobin\n")
-            for j in machines:
+            for j in vms:
                 if j == "s1":
                     fin.write("\tserver s1 10.20.2.101:80 check\n")
                 if j == "s2":
@@ -263,7 +273,7 @@ def stop():#done
     logger.info('Parando...')
     # Apaga las máquinas
     for i in servers_name:
-        if i == servers_name[num_servers]:
+        if i.index == num_servers:
             os.system('sudo virsh shutdown '+i)
             break
         else:
@@ -317,6 +327,16 @@ def help():
 # @main
 if len(sys.argv) >= 2:
     param1 = str(sys.argv[1])
+
+    cont = 0
+    for i in servers_name:
+        if cont <= num_servers:
+            vms.append(i)
+            cont=cont+1
+        else:
+            vms.append(i)
+            break
+    print(vms)
     
 # Si debugmode es true, se ejecuta el debuger
     if debugmode:
