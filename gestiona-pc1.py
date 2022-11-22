@@ -20,24 +20,22 @@ def readJSON_server():
         fin = open('gestiona-pc1.json', 'r')  # in file
         for line in fin:
             if "num_serv" in line:
-                string = str(line).split()
-                if string[1]=="1" or string[1]=="1," or string[2]=="1" or string[2]=="1,":
+                if "1" in line:
                     return 1
-                elif string[1]=="2" or string[1]=="2," or string[2]=="2" or string[2]=="2,":
+                elif "2" in line:
                     return 2
-                elif string[1]=="3" or string[1]=="3," or string[2]=="3" or string[2]=="3,":
+                elif "3" in line:
                     return 3
-                elif string[1]=="4" or string[1]=="4," or string[2]=="4" or string[2]=="4,":
+                elif "4" in line:
                     return 4
-                elif string[1]=="5" or string[1]=="5," or string[2]=="5" or string[2]=="5,":
+                elif "5" in line:
                     return 5
                 else:
+                    print("Por defecto, asignamos dos servidores")
                     return 2
         fin.close()
     else:
-        print('Debes usar el parámetro prepare, donde el nº de servidores tiene que ser de 1 a 5, tal que así:')
-        print('$gestiona-pc1.py prepare [nº servidores]\n')
-        return None
+        return 0
 
 #Verifica si el debugmode está activado y devuelve un bool dependiendo de si está activado o no
 def readJSON_debugmode():
@@ -48,8 +46,7 @@ def readJSON_debugmode():
         fin = open('gestiona-pc1.json', 'r')  # in file
         for line in fin:
             if "debug" in line:
-                debug = str(line).split()
-                if debug[1] == 'true':
+                if 'true' in line:
                     return True
                 else:
                     return False
@@ -57,8 +54,6 @@ def readJSON_debugmode():
                 return False
         fin.close()
     else:
-        print('Debes usar el parámetro prepare, donde el nº de servidores tiene que ser de 1 a 5, tal que así:')
-        print('$gestiona-pc1.py prepare [nº servidores]\n')
         return False
 
 #Datos extraidos del JSON
@@ -148,7 +143,7 @@ def create():
         if str(i) == "s1" or str(i) == "s2" or str(i) == "s3" or str(i) == "s4" or str(i) == "s5":
         #Copia el archivo hostname ya que el contenido de ambos es el mismo
             ###No funciona: error: target ‘/var/www/html’ is not a directory
-            call(["cp", "hostname", "index.html"])
+            os.system("echo "+i+">index.html")
             call(["sudo", "virt-copy-in", "-a", str(i) + ".qcow2", "index.html", "/var/www/html"]) #error: target ‘/var/www/html’ is not a directory 
         #Configura el archivo hosts
         call(["cp", "/etc/hosts", "hosts"])
@@ -161,9 +156,9 @@ def create():
                 fin.write(line)
         fin.close()
         fout.close()
-        call(["sudo", "virt-copy-in", "-a", str(i) + ".qcow2", "hosts", "/etc"])
+        os.system("sudo virt-copy-in -a"+str(i)+".qcow2 hosts /etc")
         #Configura el archivo interfaces
-        call(["touch","interfaces"])
+        os.system("touch interfaces")
         fout = open("interfaces","w+")
         if str(i) == "s1":
             #Configura la ip propia
@@ -190,7 +185,7 @@ def create():
             fout.write("iface lo inet loopback \n\n")
             fout.write("auto eth0 \n")
             fout.write("iface eth0 inet static \n")
-            fout.write("\taddress 10.0.2.13 \n")
+            fout.write("\taddress 10.0.2.103 \n")
             fout.write("\tnetmask 255.255.255.0 \n")
             fout.write("\tgateway 10.20.2.1 \n")
             fout.write("\tdns-nameservers 10.20.2.1\n")
@@ -199,14 +194,14 @@ def create():
             fout.write("iface lo inet loopback \n\n")
             fout.write("auto eth0 \n")
             fout.write("iface eth0 inet static \n")
-            fout.write("\taddress 10.0.2.14 \n")
+            fout.write("\taddress 10.0.2.104 \n")
             fout.write("\tnetmask 255.255.255.0 \n")
             fout.write("\tgateway 10.20.2.1 \n")
             fout.write("\tdns-nameservers 10.20.2.1\n")
         if str(i) == "s5":
             fout.write("auto eth0 \n")
             fout.write("iface eth0 inet static \n")
-            fout.write("\taddress 10.0.2.15 \n")
+            fout.write("\taddress 10.0.2.105 \n")
             fout.write("\tnetmask 255.255.255.0 \n")
             fout.write("\tgateway 10.20.2.1 \n")
             fout.write("\tdns-nameservers 10.20.2.1\n")
@@ -234,7 +229,7 @@ def create():
             fout.write("\tgateway 10.20.1.1 \n")
             fout.write("\tdns-nameservers 10.20.1.1\n")
         fout.close()
-        call(["sudo", "virt-copy-in", "-a", str(i) + ".qcow2", "interfaces", "/etc/network"])
+        os.system("sudo virt-copy-in -a"+str(i)+".qcow2 interfaces /etc/network")
         os.system("rm -f interfaces")
     os.system('rm hosts')
     os.system('rm hostname')
@@ -243,16 +238,16 @@ def create():
 def start():
     logger.info('Empezando...')
     for i in vms:
-        os.system('sudo virsh start'+i)
-        os.system('xterm -e “sudo virsh console '+i+'”&')
+        os.system('sudo virsh start '+i)
+
+    for i in vms:
+        os.system("xterm -rv -sb -rightbar -fa monospace -fs 10 -title '"+i+"' -e 'sudo virsh console "+i+"'&")
 
 def stop():#done
     logger.info('Parando...')
     # Apaga las máquinas
     for i in vms:
         os.system('sudo virsh shutdown '+i)
-    os.system('sudo virsh shutdown lb')
-    os.system('sudo virsh shutdown c1')
 
 def destroy():#done
     logger.info('Eliminando...')
