@@ -21,15 +21,16 @@ def readJSON_server():
         for line in fin:
             if "num_serv" in line:
                 string = str(line).split()
-                if string[2]=="1":
+                print(string)
+                if string[1]=="1" or string[1]=="1," or string[2]=="1" or string[2]=="1,":
                     return 1
-                elif string[2]=="2":
+                elif string[1]=="2" or string[1]=="2," or string[2]=="2" or string[2]=="2,":
                     return 2
-                elif string[2]=="3":
+                elif string[1]=="3" or string[1]=="3," or string[2]=="3" or string[2]=="3,":
                     return 3
-                elif string[2]=="4":
+                elif string[1]=="4" or string[1]=="4," or string[2]=="4" or string[2]=="4,":
                     return 4
-                elif string[2]=="5":
+                elif string[1]=="5" or string[1]=="5," or string[2]=="5" or string[2]=="5,":
                     return 5
                 else:
                     return 2
@@ -76,13 +77,12 @@ def prepare():
     logger.info('Preparando...')
 
     json = open("gestiona-pc1.json", "w+")
-    json.write('{\n\t"num_serv" : '+param2+'\n}')
+    json.write('{\n\t"num_serv": '+param2+'\n}')
     json.close()
 
 def create():
     logger.info('Creando...')
     # Cree los bridges correspondientes a las dos redes virtuales
-
     os.system('sudo brctl addbr LAN1')
     os.system('sudo brctl addbr LAN2')
     os.system('sudo ifconfig LAN1 up')
@@ -92,10 +92,10 @@ def create():
     os.system("sudo ifconfig LAN1 10.20.1.3/24")
     os.system("sudo ip route add 10.20.0.0/16 via 10.20.1.1")
 
-    #Da permisos a la imagen base
+    #Damos permisos a la imagen base
     call(["chmod", "777", "cdps-vm-base-pc1.qcow2"])
     #Crea las imagenes de las maquinas virtuales
-    for i in servers_name: ##Cuidado con vms tamb tienes que estar sn
+    for i in vms: ##Cuidado con vms tamb tienes que estar sn
         call(["qemu-img", "create", "-f", "qcow2", "-b", "cdps-vm-base-pc1.qcow2", i+".qcow2"])
         call(["cp", "plantilla-vm-pc1.xml", i+".xml"])
 
@@ -318,8 +318,7 @@ def help():
     print('\t|')
     print('\t -> stop: para parar las máquinas virtuales (sin liberarlas)')
     print('\t|')
-    print(
-        '\t -> destroy: para liberar el escenario, borrando todos los ficheros creados')
+    print('\t -> destroy: para liberar el escenario, borrando todos los ficheros creados')
     print('\n\tparam2 (opcional)')
     print('\t|')
     print('\t -> número de servidores web a arrancar. Configurable de 1 a 5. Por defecto se asigna 2')
@@ -328,15 +327,16 @@ def help():
 if len(sys.argv) >= 2:
     param1 = str(sys.argv[1])
 
-    cont = 0
-    for i in servers_name:
-        if cont <= num_servers:
-            vms.append(i)
-            cont=cont+1
-        else:
-            vms.append(i)
-            break
-    print(vms)
+    if num_servers is not None:
+        cont = 0
+        for i in servers_name:
+            if cont <= num_servers:
+                vms.append(i)
+                cont=cont+1
+            else:
+                vms.append(i)
+                break
+        print(vms)
     
 # Si debugmode es true, se ejecuta el debuger
     if debugmode:
