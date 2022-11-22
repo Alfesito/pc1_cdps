@@ -5,7 +5,6 @@ from subprocess import STDOUT, check_call
 import os
 import logging
 from lxml import etree
-from subprocess import call
 
 #Lista de nombre para los servidores
 servers_name=["c1","lb","s1","s2","s3","s4","s5"]
@@ -76,22 +75,21 @@ def prepare():
 
 def create():
     logger.info('Creando...')
-    # Cree los bridges correspondientes a las dos redes virtuales
+    # Configuraciones en el host
     os.system('sudo brctl addbr LAN1')
     os.system('sudo brctl addbr LAN2')
     os.system('sudo ifconfig LAN1 up')
     os.system('sudo ifconfig LAN2 up')
 
-    #Configuracion del host
     os.system("sudo ifconfig LAN1 10.20.1.3/24")
     os.system("sudo ip route add 10.20.0.0/16 via 10.20.1.1")
 
-    #Damos permisos a la imagen base
-    call(["chmod", "777", "cdps-vm-base-pc1.qcow2"])
-    #Crea las imagenes de las maquinas virtuales
-    for i in vms: ##Cuidado con vms tamb tienes que estar sn
-        call(["qemu-img", "create", "-f", "qcow2", "-b", "cdps-vm-base-pc1.qcow2", i+".qcow2"])
-        call(["cp", "plantilla-vm-pc1.xml", i+".xml"])
+    os.system("chmod +rwx cdps-vm-base-pc1.qcow2")
+    os.system("touch interfaces")
+
+    for i in vms: 
+        os.system("qemu-img create -f qcow2 -b cdps-vm-base-pc1.qcow2 "+i+".qcow2")
+        os.system("cp plantilla-vm-pc1.xml "+i+".xml")
 
         # Carga el fichero xml
         tree = etree.parse(i+".xml")
@@ -127,110 +125,108 @@ def create():
         tree.write(i+".xml")
 
         #Define las MV
-        call(["sudo", "virsh", "define", str(i) + ".xml"])
+        os.system("sudo virsh define "+i+".xml")
         #Configuracion del fichero hostname
-        call(["touch", "hostname"])
+        os.system("touch hostname")
         #w+ es una orden para actualizar el contenido del fichero
         fin = open ("hostname","w+")
-        fin.write(str(i))
+        fin.write(i)
         fin.close()
-        call(["chmod", "777", "hostname"])
+        os.system("chmod +rwx hostname")
         #Copia a la máquina virtual el fichero
         #-a hace referencia a la imagen de la MV a la que se va a copiar
-        call(["sudo", "virt-copy-in", "-a", str(i) + ".qcow2", "hostname", "/etc"])
+        os.system("sudo virt-copy-in -a "+i+".qcow2 hostname /etc")
         
         #Configuración de los ficheros index.html para los servidores
         if str(i) == "s1" or str(i) == "s2" or str(i) == "s3" or str(i) == "s4" or str(i) == "s5":
         #Copia el archivo hostname ya que el contenido de ambos es el mismo
             ###No funciona: error: target ‘/var/www/html’ is not a directory
             os.system("echo "+i+">index.html")
-            call(["sudo", "virt-copy-in", "-a", str(i) + ".qcow2", "index.html", "/var/www/html"]) #error: target ‘/var/www/html’ is not a directory 
+            os.system("sudo virt-copy-in -a "+i+".qcow2 index.html /var/www/html") #error: target ‘/var/www/html’ is not a directory 
         #Configura el archivo hosts
-        call(["cp", "/etc/hosts", "hosts"])
+        os.system("cp /etc/hosts hosts")
         fin = open ("hosts","w")
         fout = open ("/etc/hosts", "r")
         for line in fout:
             if "127.0.0.1 localhost" in line:
-                fin.write("127.0.1.1 " + str(i) + "\n")
+                fin.write("127.0.1.1 "+i+"\n")
             else:
                 fin.write(line)
         fin.close()
         fout.close()
-        os.system("sudo virt-copy-in -a"+str(i)+".qcow2 hosts /etc")
+        os.system("sudo virt-copy-in -a "+i+".qcow2 hosts /etc")
         #Configura el archivo interfaces
-        os.system("touch interfaces")
         fout = open("interfaces","w+")
-        if str(i) == "s1":
-            #Configura la ip propia
+        if i == "lb":
             fout.write("auto lo \n")
-            fout.write("iface lo inet loopback \n\n")
-            #Configura la interfaz eth0
+            fout.write("iface lo inet loopback\n")
+            fout.write("auto eth0 eth1\n")
+            fout.write("iface eth0 inet static\n")
+            fout.write("\taddress 10.20.1.1\n")
+            fout.write("\tnetmask 255.255.255.0\n")
+            fout.write("\tgateway 10.20.1.1 \n")
+            fout.write("\tdns-nameservers 10.20.1.1\n")
+            fout.write("iface eth1 inet static\n")
+            fout.write("\taddress 10.20.2.1 \n")
+            fout.write("\tnetmask 255.255.255.0\n")
+            fout.write("\tgateway 10.20.2.1\n")
+            fout.write("\tdns-nameservers 10.20.2.1\n")
+        elif i == "c1":
+            fout.write("auto lo\n")
+            fout.write("iface lo inet loopback\n")
+            fout.write("auto eth0\n")
+            fout.write("iface eth0 inet static\n")
+            fout.write("\taddress 10.20.1.2 \n")
+            fout.write("\tnetmask 255.255.255.0 \n")
+            fout.write("\tgateway 10.20.1.1 \n")
+            fout.write("\tdns-nameservers 10.20.1.1\n")
+        elif i == "s1":
+            fout.write("auto lo \n")
+            fout.write("iface lo inet loopback \n")
             fout.write("auto eth0 \n")
             fout.write("iface eth0 inet static \n")
             fout.write("\taddress 10.20.2.101 \n")
             fout.write("\tnetmask 255.255.255.0 \n")
             fout.write("\tgateway 10.20.2.1 \n")
             fout.write("\tdns-nameservers 10.20.2.1\n")
-        if str(i) == "s2":
-            fout.write("auto lo \n")
-            fout.write("iface lo inet loopback \n\n")
+        elif i == "s2":
+            fout.write("auto lo\n")
+            fout.write("iface lo inet loopback\n")
             fout.write("auto eth0 \n")
-            fout.write("iface eth0 inet static \n")
-            fout.write("\taddress 10.20.2.102 \n")
+            fout.write("iface eth0 inet static\n")
+            fout.write("\taddress 10.20.2.102\n")
             fout.write("\tnetmask 255.255.255.0 \n")
             fout.write("\tgateway 10.20.2.1 \n")
             fout.write("\tdns-nameservers 10.20.2.1\n")
-        if str(i) == "s3":
-            fout.write("auto lo \n")
-            fout.write("iface lo inet loopback \n\n")
-            fout.write("auto eth0 \n")
-            fout.write("iface eth0 inet static \n")
-            fout.write("\taddress 10.0.2.103 \n")
-            fout.write("\tnetmask 255.255.255.0 \n")
-            fout.write("\tgateway 10.20.2.1 \n")
+        elif i == "s3":
+            fout.write("auto lo\n")
+            fout.write("iface lo inet loopback\n")
+            fout.write("auto eth0\n")
+            fout.write("iface eth0 inet static\n")
+            fout.write("\taddress 10.0.2.103\n")
+            fout.write("\tnetmask 255.255.255.0\n")
+            fout.write("\tgateway 10.20.2.1\n")
             fout.write("\tdns-nameservers 10.20.2.1\n")
-        if str(i) == "s4":
-            fout.write("auto lo \n")
-            fout.write("iface lo inet loopback \n\n")
-            fout.write("auto eth0 \n")
+        elif i == "s4":
+            fout.write("auto lo\n")
+            fout.write("iface lo inet loopback\n")
+            fout.write("auto eth0\n")
             fout.write("iface eth0 inet static \n")
-            fout.write("\taddress 10.0.2.104 \n")
-            fout.write("\tnetmask 255.255.255.0 \n")
-            fout.write("\tgateway 10.20.2.1 \n")
+            fout.write("\taddress 10.0.2.104\n")
+            fout.write("\tnetmask 255.255.255.0\n")
+            fout.write("\tgateway 10.20.2.1\n")
             fout.write("\tdns-nameservers 10.20.2.1\n")
-        if str(i) == "s5":
-            fout.write("auto eth0 \n")
-            fout.write("iface eth0 inet static \n")
-            fout.write("\taddress 10.0.2.105 \n")
-            fout.write("\tnetmask 255.255.255.0 \n")
-            fout.write("\tgateway 10.20.2.1 \n")
+        elif i == "s5":
+            fout.write("auto eth0\n")
+            fout.write("iface eth0 inet static\n")
+            fout.write("\taddress 10.0.2.105\n")
+            fout.write("\tnetmask 255.255.255.0\n")
+            fout.write("\tgateway 10.20.2.1\n")
             fout.write("\tdns-nameservers 10.20.2.1\n")
-        if str(i) == "lb":
-            fout.write("auto lo \n")
-            fout.write("iface lo inet loopback \n\n")
-            fout.write("auto eth0 eth1\n")
-            fout.write("iface eth0 inet static \n")
-            fout.write("\taddress 10.20.1.1 \n")
-            fout.write("\tnetmask 255.255.255.0 \n")
-            fout.write("\tgateway 10.20.1.1 \n")
-            fout.write("\tdns-nameservers 10.20.1.1\n")
-            fout.write("iface eth1 inet static \n")
-            fout.write("\taddress 10.20.2.1 \n")
-            fout.write("\tnetmask 255.255.255.0 \n")
-            fout.write("\tgateway 10.20.2.1 \n")
-            fout.write("\tdns-nameservers 10.20.2.1\n")
-        if str(i) == "c1":
-            fout.write("auto lo \n")
-            fout.write("iface lo inet loopback \n\n")
-            fout.write("auto eth0 \n")
-            fout.write("iface eth0 inet static \n")
-            fout.write("\taddress 10.20.1.2 \n")
-            fout.write("\tnetmask 255.255.255.0 \n")
-            fout.write("\tgateway 10.20.1.1 \n")
-            fout.write("\tdns-nameservers 10.20.1.1\n")
         fout.close()
-        os.system("sudo virt-copy-in -a"+str(i)+".qcow2 interfaces /etc/network")
-        os.system("rm -f interfaces")
+        os.system("sudo virt-copy-in -a "+i+".qcow2 interfaces /etc/network")
+
+    os.system('rm interfaces')
     os.system('rm hosts')
     os.system('rm hostname')
     os.system('rm index.html')
@@ -243,13 +239,13 @@ def start():
     for i in vms:
         os.system("xterm -rv -sb -rightbar -fa monospace -fs 10 -title '"+i+"' -e 'sudo virsh console "+i+"'&")
 
-def stop():#done
+def stop():
     logger.info('Parando...')
     # Apaga las máquinas
     for i in vms:
         os.system('sudo virsh shutdown '+i)
 
-def destroy():#done
+def destroy():
     logger.info('Eliminando...')
     # Apaga forzadamente las máquinas
     for i in vms:
