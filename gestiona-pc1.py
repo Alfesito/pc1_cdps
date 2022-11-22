@@ -21,7 +21,6 @@ def readJSON_server():
         for line in fin:
             if "num_serv" in line:
                 string = str(line).split()
-                print(string)
                 if string[1]=="1" or string[1]=="1," or string[2]=="1" or string[2]=="1,":
                     return 1
                 elif string[1]=="2" or string[1]=="2," or string[2]=="2" or string[2]=="2,":
@@ -150,7 +149,7 @@ def create():
         #Copia el archivo hostname ya que el contenido de ambos es el mismo
             ###No funciona: error: target ‘/var/www/html’ is not a directory
             call(["cp", "hostname", "index.html"])
-            call(["sudo", "virt-copy-in", "-a", str(i) + ".qcow2", "index.html", "/var/www/html"])
+            call(["sudo", "virt-copy-in", "-a", str(i) + ".qcow2", "index.html", "/var/www/html"]) #error: target ‘/var/www/html’ is not a directory 
         #Configura el archivo hosts
         call(["cp", "/etc/hosts", "hosts"])
         fin = open ("hosts","w")
@@ -176,6 +175,7 @@ def create():
             fout.write("\taddress 10.20.2.101 \n")
             fout.write("\tnetmask 255.255.255.0 \n")
             fout.write("\tgateway 10.20.2.1 \n")
+            fout.write("\tdns-nameservers 10.20.2.1\n")
         if str(i) == "s2":
             fout.write("auto lo \n")
             fout.write("iface lo inet loopback \n\n")
@@ -184,6 +184,7 @@ def create():
             fout.write("\taddress 10.20.2.102 \n")
             fout.write("\tnetmask 255.255.255.0 \n")
             fout.write("\tgateway 10.20.2.1 \n")
+            fout.write("\tdns-nameservers 10.20.2.1\n")
         if str(i) == "s3":
             fout.write("auto lo \n")
             fout.write("iface lo inet loopback \n\n")
@@ -192,6 +193,7 @@ def create():
             fout.write("\taddress 10.0.2.13 \n")
             fout.write("\tnetmask 255.255.255.0 \n")
             fout.write("\tgateway 10.20.2.1 \n")
+            fout.write("\tdns-nameservers 10.20.2.1\n")
         if str(i) == "s4":
             fout.write("auto lo \n")
             fout.write("iface lo inet loopback \n\n")
@@ -200,12 +202,14 @@ def create():
             fout.write("\taddress 10.0.2.14 \n")
             fout.write("\tnetmask 255.255.255.0 \n")
             fout.write("\tgateway 10.20.2.1 \n")
+            fout.write("\tdns-nameservers 10.20.2.1\n")
         if str(i) == "s5":
             fout.write("auto eth0 \n")
             fout.write("iface eth0 inet static \n")
             fout.write("\taddress 10.0.2.15 \n")
             fout.write("\tnetmask 255.255.255.0 \n")
             fout.write("\tgateway 10.20.2.1 \n")
+            fout.write("\tdns-nameservers 10.20.2.1\n")
         if str(i) == "lb":
             fout.write("auto lo \n")
             fout.write("iface lo inet loopback \n\n")
@@ -214,10 +218,12 @@ def create():
             fout.write("\taddress 10.20.1.1 \n")
             fout.write("\tnetmask 255.255.255.0 \n")
             fout.write("\tgateway 10.20.1.1 \n")
+            fout.write("\tdns-nameservers 10.20.1.1\n")
             fout.write("iface eth1 inet static \n")
             fout.write("\taddress 10.20.2.1 \n")
             fout.write("\tnetmask 255.255.255.0 \n")
             fout.write("\tgateway 10.20.2.1 \n")
+            fout.write("\tdns-nameservers 10.20.2.1\n")
         if str(i) == "c1":
             fout.write("auto lo \n")
             fout.write("iface lo inet loopback \n\n")
@@ -226,74 +232,36 @@ def create():
             fout.write("\taddress 10.20.1.2 \n")
             fout.write("\tnetmask 255.255.255.0 \n")
             fout.write("\tgateway 10.20.1.1 \n")
+            fout.write("\tdns-nameservers 10.20.1.1\n")
         fout.close()
         call(["sudo", "virt-copy-in", "-a", str(i) + ".qcow2", "interfaces", "/etc/network"])
-        call(["rm","-f","interfaces"])
-        #Configura la maquina lb para distribuir trafico
-        if str(i) == "lb":
-            #Saca de la MV el archivo haproxy
-            call(["sudo", "virt-copy-out", "-a", str(i) + ".qcow2", "/etc/haproxy/haproxy.cfg", "."])
-            call(["touch", "haproxy2.cfg"])
-            fout = open("haproxy.cfg", "r")
-            fin = open("haproxy2.cfg", "w")
-            for line in fout:
-                fin.write(line)
-            fin.write("\nfrontend lb \n")
-            fin.write("\tbind *:80\n")
-            fin.write("\tmode http\n")
-            fin.write("\tdefault_backend webservers\n")
-            fin.write("\nbackend webservers\n")
-            fin.write("\tmode http\n")
-            fin.write("\tbalance roundrobin\n")
-            for j in vms:
-                if j == "s1":
-                    fin.write("\tserver s1 10.20.2.101:80 check\n")
-                if j == "s2":
-                    fin.write("\tserver s2 10.20.2.102:80 check\n")
-                if j == "s3":
-                    fin.write("\tserver s3 10.20.2.103:80 check\n")
-                if j == "s4":
-                    fin.write("\tserver s4 10.20.2.104:80 check\n")
-                if j == "s5":
-                    fin.write("\tserver s5 10.20.2.105:80 check\n")
-            fin.close()
-            fout.close()
-
+        os.system("rm -f interfaces")
+    os.system('rm hosts')
+    os.system('rm hostname')
+    os.system('rm index.html')
 
 def start():
     logger.info('Empezando...')
-    for i in servers_name:
-        if i == num_servers:
-            os.system('xterm -e “sudo virsh console '+i+'”&')
-            break
-        else:
-            os.system('xterm -e “sudo virsh console '+i+'”&')
+    for i in vms:
+        os.system('sudo virsh start'+i)
+        os.system('xterm -e “sudo virsh console '+i+'”&')
 
 def stop():#done
     logger.info('Parando...')
     # Apaga las máquinas
-    for i in servers_name:
-        if i.index == num_servers:
-            os.system('sudo virsh shutdown '+i)
-            break
-        else:
-            os.system('sudo virsh shutdown '+i)
+    for i in vms:
+        os.system('sudo virsh shutdown '+i)
     os.system('sudo virsh shutdown lb')
     os.system('sudo virsh shutdown c1')
 
 def destroy():#done
     logger.info('Eliminando...')
     # Apaga forzadamente las máquinas
-    for i in servers_name:
-        if i == servers_name[num_servers]:
-            os.system('sudo virsh destroy '+i)
-            os.system('rm '+i+'.xml')
-            os.system('rm '+i+'.qcow2')
-            break
-        else:
-            os.system('sudo virsh destroy '+i)
-            os.system('rm '+i+'.xml')
-            os.system('rm '+i+'.qcow2')
+    for i in vms:
+        os.system('sudo virsh destroy '+i)
+        os.system('rm '+i+'.xml')
+        os.system('rm '+i+'.qcow2')
+
     os.system('sudo virsh destroy lb')
     os.system('sudo virsh destroy c1')
     # Elimina los archivos creados por el script      
@@ -336,7 +304,6 @@ if len(sys.argv) >= 2:
             else:
                 vms.append(i)
                 break
-        print(vms)
     
 # Si debugmode es true, se ejecuta el debuger
     if debugmode:
@@ -345,14 +312,6 @@ if len(sys.argv) >= 2:
     else:
         logging.basicConfig(level=logging.INFO)
         logger = logging.getLogger('gestiona-pc1')
-
-    list_qcow2 = subprocess.run(
-        ["ls", "/lab/cdps/pc1/cdps-vm-base-pc1.qcow2"], stdout=open(os.devnull, 'wb'), stderr=STDOUT)
-    # Buscamos que la imagen de la VM se encuentre en el directorio
-    if list_qcow2.returncode:   # Si el comando list_qcow2 devuelve 1 -> NO se ha encontrado el archivo
-        logger.info('\nNo se encuentra el archivo cdps-vm-base-pc1.qcow2')
-        logger.info('Se procede a su descarga...\n')
-        #os.system('wget https://idefix.dit.upm.es/download/cdps/pc1/cdps-vm-base-pc1.qcow2')
 
     if sys.argv[1] == 'create' and len(sys.argv) == 2:
         create()
