@@ -76,7 +76,7 @@ def create():
     if num_servers is not None:
         cont = 0
         for i in servers_name:
-            if cont <= num_servers:
+            if str(cont) <= num_servers:
                 vms.append(i)
                 cont=cont+1
             else:
@@ -308,7 +308,7 @@ if len(sys.argv) >= 2:
         logging.basicConfig(level=logging.INFO)
         logger = logging.getLogger('gestiona-pc1')
 
-    if sys.argv[1] == 'create' and len(sys.argv) == 2:
+    if sys.argv[1] == 'create' and len(sys.argv) <= 3:
         create()
     elif sys.argv[1] == 'start' and len(sys.argv) == 2:
         start()
