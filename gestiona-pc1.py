@@ -30,48 +30,44 @@ def readJSON_server():
                 elif "5" in line:
                     return 5
                 else:
-                    print("Por defecto, asignamos dos servidores")
+                    logger.debug("Por defecto, asignamos dos servidores")
                     return 2
         fin.close()
     else:
         return 0
 
 #Verifica si el debugmode está activado y devuelve un bool dependiendo de si está activado o no
+debugmode = False
 def readJSON_debugmode():
     jsonfound = subprocess.run(
         ["ls", "gestiona-pc1.json"], stdout=open(os.devnull, 'wb'), stderr=STDOUT)
     if not jsonfound.returncode:
-        #os.system("cat gestiona-pc1.json | grep num_serv | awk '{print$NF}'")
+        #os.system("cat gestiona-pc1.json | grep debug | awk '{print$NF}'")
         fin = open('gestiona-pc1.json', 'r')  # in file
         for line in fin:
-            if "debug" in line:
+            if 'debug' in line:
                 if 'true' in line:
                     return True
-                else:
-                    return False
-            else:
-                return False
         fin.close()
-    else:
-        return False
 
 #Datos extraidos del JSON
 debugmode = readJSON_debugmode()
 num_servers = readJSON_server()
+print(debugmode)
 
 def create():
-    logger.info('Creando...')
-    # Verifica el parametro de numero de servidores
+    logger.debug('Creando...')
+    logger.debug('Se verifica el parametro de numero de servidores')
     if len(sys.argv) == 3:
         param2 = str(sys.argv[2])
     else:
-        logger.info('El número de servidores web a arrancar está fuera de los límites permitidos')
-        logger.info('Por ello se arrancaran el número por defecto: 2\n')
+        logger.debug('El número de servidores web a arrancar está fuera de los límites permitidos')
+        logger.debug('Por ello se arrancaran el número por defecto: 2\n')
         param2 = str(2)  # Valor por defecto del número de servidores a arrancar
     json = open("gestiona-pc1.json", "w+")
     json.write('{\n\t"num_serv": '+param2+'\n}')
     json.close()
-    #Modoficamos la lista vms segun sea el numero de servidores
+
     num_servers=param2
     if num_servers is not None:
         cont = 0
@@ -82,7 +78,7 @@ def create():
             else:
                 vms.append(i)
                 break
-    # Configuraciones en el host
+    logger.debug('Se aplican las configuraciones en el host')
     os.system('sudo brctl addbr LAN1')
     os.system('sudo brctl addbr LAN2')
     os.system('sudo ifconfig LAN1 up')
@@ -97,28 +93,22 @@ def create():
     for i in vms: 
         os.system("qemu-img create -f qcow2 -b cdps-vm-base-pc1.qcow2 "+i+".qcow2")
         os.system("cp plantilla-vm-pc1.xml "+i+".xml")
-
-        # Carga el fichero xml
+        logger.debug('Modificamos el fichero xml de '+i)
         tree = etree.parse(i+".xml")
-        # Obtiene el nodo raiz e imprimimos su nombre y el valor del atributo 'tipo'
         root = tree.getroot()
-        # Buscamos la etiqueta 'nombre' y lo cambiamos
-        domain = root.find("domain")
         name = root.find("name")
         name.text = i
-        # Busca la etiqueta 'source' y lo cambiamos
         source = root.find("./devices/disk/source")
-        #Busca la ruta absoluta de la imagen de la MV
         ruta = os.path.abspath(i+".qcow2")
         source.set("file", ruta)
-        # Busca la etiqueta 'source' dentro de 'interface' y lo cambia dependiendo de la máquina
-        if (i == "c1") or (i == "lb"):
+        if i == "c1":
             interface = root.find("./devices/interface/source")
             interface.set("bridge", "LAN1")
-        else:
+        if i== "lb":
+            interface = root.find("./devices/interface/source")
+            interface.set("bridge", "LAN1")
             interface = root.find("./devices/interface/source")
             interface.set("bridge", "LAN2")
-        #Crea la interfaz para LAN 2 si es el caso de lb
         if i == "lb":
             interface_tag = etree.Element("interface", type="bridge")
             devices_tag = root.find("devices")
@@ -128,41 +118,35 @@ def create():
             model_tag = etree.Element("model", type="virtio")
             interface_tag.append(source_tag)
             interface_tag.append(model_tag)
-        #Guarda el contenido del fichero XML
         tree.write(i+".xml")
 
-        #Define las MV
+        logger.debug('Se define las MV '+i+' con el xml')
         os.system("sudo virsh define "+i+".xml")
-        #Configuracion del fichero hostname
+        logger.debug('Configurando del fichero hostname de '+i)
         os.system("touch hostname")
-        #w+ es una orden para actualizar el contenido del fichero
         fin = open ("hostname","w+")
         fin.write(i)
         fin.close()
         os.system("chmod +rwx hostname")
-        #Copia a la máquina virtual el fichero
-        #-a hace referencia a la imagen de la MV a la que se va a copiar
         os.system("sudo virt-copy-in -a "+i+".qcow2 hostname /etc")
-        
-        #Configuración de los ficheros index.html para los servidores
-        if str(i) == "s1" or str(i) == "s2" or str(i) == "s3" or str(i) == "s4" or str(i) == "s5":
-        #Copia el archivo hostname ya que el contenido de ambos es el mismo
-            ###No funciona: error: target ‘/var/www/html’ is not a directory
+        logger.debug('Configuración de los ficheros index.html para '+i)
+        if i == "s1" or i == "s2" or i == "s3" or i == "s4" or i == "s5":
+            logger.debug('Copiando el archivo hostname ya que el contenido de ambos es el mismo')
             os.system("echo "+i+">index.html")
-            os.system("sudo virt-copy-in -a "+i+".qcow2 index.html /var/www/html") #error: target ‘/var/www/html’ is not a directory 
-        #Configura el archivo hosts
+            os.system("sudo virt-copy-in -a "+i+".qcow2 index.html /var/www/html/") #error: target ‘/var/www/html’ is not a directory 
+        logger.debug('Configura el archivo hosts de '+i)
         os.system("cp /etc/hosts hosts")
         fin = open ("hosts","w")
         fout = open ("/etc/hosts", "r")
         for line in fout:
-            if "127.0.0.1 localhost" in line:
-                fin.write("127.0.1.1 "+i+"\n")
+            if "127.0.0.1" in line:
+                fin.write("127.0.1.1\t"+i+"\n")
             else:
                 fin.write(line)
         fin.close()
         fout.close()
         os.system("sudo virt-copy-in -a "+i+".qcow2 hosts /etc")
-        #Configura el archivo interfaces
+        logger.debug('Configurando el archivo interfaces de '+i)
         fout = open("interfaces","w+")
         if i == "lb":
             fout.write("auto lo \n")
@@ -232,41 +216,38 @@ def create():
             fout.write("\tdns-nameservers 10.20.2.1\n")
         fout.close()
         os.system("sudo virt-copy-in -a "+i+".qcow2 interfaces /etc/network")
-    #ELiminamos archivos no necesarios
+    logger.debug('Elimindo archivos no necesarios')
     os.system('rm interfaces')
     os.system('rm hostname')
     os.system('rm index.html')
     os.system('rm hosts')
 
 def start():
-    logger.info('Empezando...')
+    logger.debug('Empezando...')
     for i in vms:
+        logger.debug('Iniciando maquina '+i)
         os.system('sudo virsh start '+i)
 
     for i in vms:
-        os.system("xterm -rv -sb -rightbar -fa monospace -fs 10 -title '"+i+"' -e 'sudo virsh console "+i+"'&")
+        logger.debug('Abriendo consola de la maquina '+i)
+        os.system("xterm -e 'sudo virsh console "+i+"'&")
 
 def stop():
-    logger.info('Parando...')
+    logger.debug('Parando...')
     # Apaga las máquinas
     for i in vms:
+        logger.debug('Parando maquina '+i)
         os.system('sudo virsh shutdown '+i)
 
 def destroy():
-    logger.info('Eliminando...')
+    logger.debug('Eliminando...')
     # Apaga forzadamente las máquinas
     for i in vms:
+        logger.debug('Eliminando maquina '+i)
         os.system('sudo virsh destroy '+i)
         os.system('rm '+i+'.xml')
         os.system('rm '+i+'.qcow2')
-
-    os.system('sudo virsh destroy lb')
-    os.system('sudo virsh destroy c1')
-    # Elimina los archivos creados por el script      
-    os.system('rm lb.xml')
-    os.system('rm c1.xml')
-    os.system('rm lb.qcow2')
-    os.system('rm c1.qcow2')
+    # Elimina el archivo JSON  
     os.system('rm gestiona-pc1.json')
 
 def help():
@@ -275,7 +256,7 @@ def help():
     print('\n\tparam1')
     print('\t|')
     print('\t -> create: para crear los ficheros .qcow2 de diferencias y los de especificación en XML de cada MV,')
-    print('\t así como los bridges virtuales que soportan las LAN del escenario')
+    print('\t así como los bridges virtuales que soportan las LAN del escenario. [param2] es el número de servidores')
     print('\t|')
     print('\t -> start: para arrancar las máquinas virtuales y mostrar su consola')
     print('\t|')
