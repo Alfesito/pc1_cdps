@@ -59,7 +59,8 @@ def readJSON_debugmode():
 debugmode = readJSON_debugmode()
 num_servers = readJSON_server()
 
-def prepare():
+def create():
+    logger.info('Creando...')
     # Verifica el parametro de numero de servidores
     if len(sys.argv) == 3:
         param2 = str(sys.argv[2])
@@ -67,14 +68,20 @@ def prepare():
         logger.info('El número de servidores web a arrancar está fuera de los límites permitidos')
         logger.info('Por ello se arrancaran el número por defecto: 2\n')
         param2 = str(2)  # Valor por defecto del número de servidores a arrancar
-    logger.info('Preparando...')
-
     json = open("gestiona-pc1.json", "w+")
     json.write('{\n\t"num_serv": '+param2+'\n}')
     json.close()
-
-def create():
-    logger.info('Creando...')
+    #Modoficamos la lista vms segun sea el numero de servidores
+    num_servers=param2
+    if num_servers is not None:
+        cont = 0
+        for i in servers_name:
+            if cont <= num_servers:
+                vms.append(i)
+                cont=cont+1
+            else:
+                vms.append(i)
+                break
     # Configuraciones en el host
     os.system('sudo brctl addbr LAN1')
     os.system('sudo brctl addbr LAN2')
@@ -225,11 +232,11 @@ def create():
             fout.write("\tdns-nameservers 10.20.2.1\n")
         fout.close()
         os.system("sudo virt-copy-in -a "+i+".qcow2 interfaces /etc/network")
-
+    #ELiminamos archivos no necesarios
     os.system('rm interfaces')
-    os.system('rm hosts')
     os.system('rm hostname')
     os.system('rm index.html')
+    os.system('rm hosts')
 
 def start():
     logger.info('Empezando...')
@@ -312,8 +319,6 @@ if len(sys.argv) >= 2:
         stop()
     elif sys.argv[1] == 'destroy' and len(sys.argv) == 2:
         destroy()
-    elif sys.argv[1] == 'prepare':
-        prepare()
     else:
         help()
 else:
