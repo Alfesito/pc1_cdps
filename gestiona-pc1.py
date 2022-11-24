@@ -245,6 +245,10 @@ def destroy():
         os.system('sudo virsh destroy '+i)
         os.system('rm '+i+'.xml')
         os.system('rm '+i+'.qcow2')
+    os.system('sudo ifconfig LAN1 down')
+    os.system('sudo ifconfig LAN2 down')
+    os.system('sudo brctl delbr LAN1')
+    os.system('sudo brctl delbr LAN2')
     # Elimina el archivo JSON  
     os.system('rm gestiona-pc1.json')
 
