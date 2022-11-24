@@ -53,7 +53,6 @@ def readJSON_debugmode():
 #Datos extraidos del JSON
 debugmode = readJSON_debugmode()
 num_servers = readJSON_server()
-print(debugmode)
 
 def create():
     logger.debug('Creando...')
@@ -83,10 +82,8 @@ def create():
     os.system('sudo brctl addbr LAN2')
     os.system('sudo ifconfig LAN1 up')
     os.system('sudo ifconfig LAN2 up')
-
     os.system("sudo ifconfig LAN1 10.20.1.3/24")
     os.system("sudo ip route add 10.20.0.0/16 via 10.20.1.1")
-
     os.system("chmod +rwx cdps-vm-base-pc1.qcow2")
     os.system("touch interfaces")
 
@@ -96,6 +93,7 @@ def create():
         logger.debug('Modificamos el fichero xml de '+i)
         tree = etree.parse(i+".xml")
         root = tree.getroot()
+        domain=root.find("domain")
         name = root.find("name")
         name.text = i
         source = root.find("./devices/disk/source")
