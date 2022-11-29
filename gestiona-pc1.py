@@ -131,7 +131,7 @@ def create():
         if i == "s1" or i == "s2" or i == "s3" or i == "s4" or i == "s5":
             logger.debug('Copiando el archivo hostname ya que el contenido de ambos es el mismo')
             os.system("echo '<html><h1>"+i+"</h1></html>' > index.html")
-            os.system("sudo virt-copy-in -a "+i+".qcow2 index.html /var/www/html/") #error: target ‘/var/www/html’ is not a directory 
+            os.system("sudo virt-copy-in -a "+i+".qcow2 ./index.html /var/www/html/") #error: target ‘/var/www/html’ is not a directory 
         logger.debug('Configura el archivo hosts de '+i)
         os.system("cp /etc/hosts hosts")
         fin = open ("hosts","w")
