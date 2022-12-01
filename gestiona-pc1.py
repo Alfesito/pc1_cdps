@@ -95,7 +95,7 @@ def create():
         logger.debug('Modificamos el fichero xml de '+i)
         tree = etree.parse(i+".xml")
         root = tree.getroot()
-        domain=root.find("domain")
+        root.find("domain")
         name = root.find("name")
         name.text = i
         source = root.find("./devices/disk/source")
@@ -104,16 +104,11 @@ def create():
         if i == "c1":
             interface = root.find("./devices/interface/source")
             interface.set("bridge", "LAN1")
-        if i== "lb":
+        elif i== "lb":
             interface = root.find("./devices/interface/source")
             interface.set("bridge", "LAN1")
             interface = root.find("./devices/interface/source")
             interface.set("bridge", "LAN2")
-        else:
-            interface = root.find("./devices/interface/source") 
-            interface.set("bridge", "LAN2")
-            
-        if i == "lb":
             interface_tag = etree.Element("interface", type="bridge")
             devices_tag = root.find("devices")
             interface_tag.text = ""
@@ -122,6 +117,10 @@ def create():
             model_tag = etree.Element("model", type="virtio")
             interface_tag.append(source_tag)
             interface_tag.append(model_tag)
+        else:
+            interface = root.find("./devices/interface/source") 
+            interface.set("bridge", "LAN2")
+            
         tree.write(i+".xml")
 
         logger.debug('Se define las MV '+i+' con el xml')
@@ -137,7 +136,17 @@ def create():
         if i == "s1" or i == "s2" or i == "s3" or i == "s4" or i == "s5":
             logger.debug('Copiando el archivo hostname ya que el contenido de ambos es el mismo')
             os.system("echo '<html><h1>"+i+"</h1></html>' > index.html")
-            os.system("sudo virt-copy-in -a "+i+".qcow2 ./index.html /var/www/html/") #error: target ‘/var/www/html’ is not a directory 
+            os.system("sudo virt-copy-in -a "+i+".qcow2 ./index.html /var/www/html/") 
+        #Paramos el apace2 del balanceador
+        if i == "lb":
+            os.system("touch rc.local")
+            os.system("chmod +x rc.local")
+            fin = open ("rc.local","w+")
+            fin.write("#!/bin/bash\n")
+            fin.write("sudo service apache2 stop\n")
+            fin.close()
+            os.system("sudo virt-copy-in -a "+i+".qcow2 rc.local /etc")
+
         logger.debug('Configura el archivo hosts de '+i)
         os.system("cp /etc/hosts hosts")
         fin = open ("hosts","w")
@@ -225,6 +234,7 @@ def create():
     os.system('rm hostname')
     os.system('rm index.html')
     os.system('rm hosts')
+    os.system('rm rc.local')
 
 def start():
     logger.debug('Empezando...')
