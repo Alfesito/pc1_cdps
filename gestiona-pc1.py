@@ -49,6 +49,8 @@ def readJSON_debugmode():
                 if 'true' in line:
                     return True
         fin.close()
+    else:
+        return False
 
 #Datos extraidos del JSON
 debugmode = readJSON_debugmode()
@@ -107,6 +109,10 @@ def create():
             interface.set("bridge", "LAN1")
             interface = root.find("./devices/interface/source")
             interface.set("bridge", "LAN2")
+        else:
+            interface = root.find("./devices/interface/source") 
+            interface.set("bridge", "LAN2")
+            
         if i == "lb":
             interface_tag = etree.Element("interface", type="bridge")
             devices_tag = root.find("devices")
@@ -223,7 +229,7 @@ def create():
 def start():
     logger.debug('Empezando...')
     for i in vms:
-        logger.debug('Iniciando maquina '+i)
+        logger.debug('Iniciando la maquina '+i)
         os.system('sudo virsh start '+i)
 
     for i in vms:
