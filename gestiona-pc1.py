@@ -87,7 +87,6 @@ def create():
     os.system("sudo ifconfig LAN1 10.20.1.3/24")
     os.system("sudo ip route add 10.20.0.0/16 via 10.20.1.1")
     os.system("chmod +rwx cdps-vm-base-pc1.qcow2")
-    os.system("touch interfaces")
 
     for i in vms: 
         os.system("qemu-img create -f qcow2 -b cdps-vm-base-pc1.qcow2 "+i+".qcow2")
@@ -119,34 +118,38 @@ def create():
             interface_tag.append(model_tag)
         else:
             interface = root.find("./devices/interface/source") 
-            interface.set("bridge", "LAN2")
-            
+            interface.set("bridge", "LAN2")  
         tree.write(i+".xml")
 
         logger.debug('Se define las MV '+i+' con el xml')
         os.system("sudo virsh define "+i+".xml")
         logger.debug('Configurando del fichero hostname de '+i)
         os.system("touch hostname")
-        fin = open ("hostname","w+")
-        fin.write(i)
-        fin.close()
         os.system("chmod +rwx hostname")
+        fin = open ("hostname","w+")
+        fin.write(str(i)+"\n")
+        fin.close()
         os.system("sudo virt-copy-in -a "+i+".qcow2 hostname /etc")
+        os.system('rm hostname')
+
         logger.debug('Configuración de los ficheros index.html para '+i)
         if i == "s1" or i == "s2" or i == "s3" or i == "s4" or i == "s5":
-            logger.debug('Copiando el archivo hostname ya que el contenido de ambos es el mismo')
             os.system("echo '<html><h1>"+i+"</h1></html>' > index.html")
             os.system("sudo virt-copy-in -a "+i+".qcow2 ./index.html /var/www/html/") 
-        #Paramos el apace2 del balanceador
+
         if i == "lb":
             os.system("touch rc.local")
             os.system("chmod +x rc.local")
-            fin = open ("rc.local","w+")
-            fin.write("#!/bin/bash\n")
-            fin.write("sudo service apache2 stop\n")
-            fin.close()
+            fin1 = open ("rc.local","w+")
+            fin1.write("#!/bin/bash\n")
+            fin1.write("sudo service apache2 stop\n")
+            fin1.close()
             os.system("sudo virt-copy-in -a "+i+".qcow2 rc.local /etc")
 
+            #os.system("echo 1 > ip_forward")
+            #os.system("sudo virt-copy-in -a "+i+".qcow2 ip_forward /proc/sys/net/ipv4/")
+            subprocess.call(["sudo virt-edit -a lb.qcow2 /etc/sysctl.conf -e 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/'"], shell=True)
+            
         logger.debug('Configura el archivo hosts de '+i)
         os.system("cp /etc/hosts hosts")
         fin = open ("hosts","w")
@@ -159,6 +162,8 @@ def create():
         fin.close()
         fout.close()
         os.system("sudo virt-copy-in -a "+i+".qcow2 hosts /etc")
+
+        os.system("touch interfaces")
         logger.debug('Configurando el archivo interfaces de '+i)
         fout = open("interfaces","w+")
         if i == "lb":
@@ -229,9 +234,9 @@ def create():
             fout.write("\tdns-nameservers 10.20.2.1\n")
         fout.close()
         os.system("sudo virt-copy-in -a "+i+".qcow2 interfaces /etc/network")
-    logger.debug('Elimindo archivos no necesarios')
-    os.system('rm interfaces')
-    os.system('rm hostname')
+        os.system('rm interfaces')
+
+    logger.debug('Eliminando archivos no necesarios')
     os.system('rm index.html')
     os.system('rm hosts')
     os.system('rm rc.local')
