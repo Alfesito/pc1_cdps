@@ -7,7 +7,7 @@
 # Librerias para ejecucion de comandos
 import sys
 import subprocess
-from subprocess import STDOUT, check_call
+from subprocess import STDOUT
 import os
 # Libreria para logs
 import logging
@@ -102,7 +102,7 @@ def create():
     os.system("chmod +rwx cdps-vm-base-pc1.qcow2")
 
     for i in vms: 
-        # Crea y copia la imagen del la VM y el XML para cada  máquina -> https://lxml.de
+        # Crea y copia la imagen del la VM y el XML para cada  máquina -> https://lxml.de/tutorial.html
         os.system("qemu-img create -f qcow2 -b cdps-vm-base-pc1.qcow2 "+i+".qcow2")
         os.system("cp plantilla-vm-pc1.xml "+i+".xml")
         logger.debug('Modificamos el fichero xml de '+i)
@@ -186,6 +186,7 @@ def create():
         os.system("sudo virt-copy-in -a "+i+".qcow2 hosts /etc")
 
         # Modificamos las interfaces según la VM
+        # http://fpg.66ghz.com/DebianRed/etcnetworkinterfaces.html
         os.system("touch interfaces")
         logger.debug('Configurando el archivo interfaces de '+i)
         fout = open("interfaces","w+")
