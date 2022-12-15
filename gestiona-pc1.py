@@ -123,8 +123,6 @@ def create():
             # Editamos el XML del lb
             interface = root.find("./devices/interface/source")
             interface.set("bridge", "LAN1")
-            interface = root.find("./devices/interface/source")
-            interface.set("bridge", "LAN2")
             interface_tag = etree.Element("interface", type="bridge")
             devices_tag = root.find("devices")
             interface_tag.text = ""
@@ -188,12 +186,13 @@ def create():
         # Modificamos las interfaces según la VM
         # http://fpg.66ghz.com/DebianRed/etcnetworkinterfaces.html
         os.system("touch interfaces")
+        os.system("chmod 777 interfaces")
         logger.debug('Configurando el archivo interfaces de '+i)
         fout = open("interfaces","w+")
         if i == "lb":
             fout.write("auto lo \n")
             fout.write("iface lo inet loopback\n")
-            fout.write("auto eth0 eth1\n")
+            fout.write("\nauto eth0 eth1\n")
             fout.write("iface eth0 inet static\n")
             fout.write("\taddress 10.20.1.1\n")
             fout.write("\tnetmask 255.255.255.0\n")
@@ -207,7 +206,7 @@ def create():
         elif i == "c1":
             fout.write("auto lo\n")
             fout.write("iface lo inet loopback\n")
-            fout.write("auto eth0\n")
+            fout.write("\nauto eth0\n")
             fout.write("iface eth0 inet static\n")
             fout.write("\taddress 10.20.1.2 \n")
             fout.write("\tnetmask 255.255.255.0 \n")
@@ -216,7 +215,7 @@ def create():
         elif i == "s1":
             fout.write("auto lo \n")
             fout.write("iface lo inet loopback \n")
-            fout.write("auto eth0 \n")
+            fout.write("\nauto eth0 \n")
             fout.write("iface eth0 inet static \n")
             fout.write("\taddress 10.20.2.101 \n")
             fout.write("\tnetmask 255.255.255.0 \n")
@@ -225,7 +224,7 @@ def create():
         elif i == "s2":
             fout.write("auto lo\n")
             fout.write("iface lo inet loopback\n")
-            fout.write("auto eth0 \n")
+            fout.write("\nauto eth0 \n")
             fout.write("iface eth0 inet static\n")
             fout.write("\taddress 10.20.2.102\n")
             fout.write("\tnetmask 255.255.255.0 \n")
@@ -234,7 +233,7 @@ def create():
         elif i == "s3":
             fout.write("auto lo\n")
             fout.write("iface lo inet loopback\n")
-            fout.write("auto eth0\n")
+            fout.write("\nauto eth0\n")
             fout.write("iface eth0 inet static\n")
             fout.write("\taddress 10.0.2.103\n")
             fout.write("\tnetmask 255.255.255.0\n")
@@ -243,14 +242,16 @@ def create():
         elif i == "s4":
             fout.write("auto lo\n")
             fout.write("iface lo inet loopback\n")
-            fout.write("auto eth0\n")
+            fout.write("\nauto eth0\n")
             fout.write("iface eth0 inet static \n")
             fout.write("\taddress 10.0.2.104\n")
             fout.write("\tnetmask 255.255.255.0\n")
             fout.write("\tgateway 10.20.2.1\n")
             fout.write("\tdns-nameservers 10.20.2.1\n")
         elif i == "s5":
-            fout.write("auto eth0\n")
+            fout.write("auto lo\n")
+            fout.write("iface lo inet loopback\n")
+            fout.write("\nauto eth0\n")
             fout.write("iface eth0 inet static\n")
             fout.write("\taddress 10.0.2.105\n")
             fout.write("\tnetmask 255.255.255.0\n")
